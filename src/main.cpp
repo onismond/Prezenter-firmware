@@ -5,25 +5,26 @@
 #include <Arduino.h>
 #include <BleKeyboard.h>
 
-const int btnForward = 25;
-const int btnBackward = 26;
-const int redLED = 14;
+const int FORWARD_BUTTON = 25;
+const int BACKWARD_BUTTON = 26;
+const int BUTTON_STATE_LED = 14;
+const int BATTERY_PIN = 35;
 
 static const BaseType_t app_cpu = 1;
 BleKeyboard bleKeyboard("Prezenter", "Bilo Technologies", 100);
-static const uint8_t key_queue_len = 10;
+static const uint8_t key_queue_len = 20;
 static QueueHandle_t keyQueue;
 
 void readButtonPress(void *parameters) {
-    pinMode(btnForward, INPUT);
-    pinMode(btnBackward, INPUT);
+    pinMode(FORWARD_BUTTON, INPUT);
+    pinMode(BACKWARD_BUTTON, INPUT);
     bool f_last_state = LOW;
     bool b_last_state = LOW;
 
     while(true) {
         
-        bool f_current_state = digitalRead(btnForward);
-        bool b_current_state = digitalRead(btnBackward);
+        bool f_current_state = digitalRead(FORWARD_BUTTON);
+        bool b_current_state = digitalRead(BACKWARD_BUTTON);
         if (f_last_state == LOW && f_current_state == HIGH) {
             uint8_t key = KEY_DOWN_ARROW;
             xQueueSend(keyQueue, &key, portMAX_DELAY);
@@ -43,20 +44,34 @@ void sendKeyPress(void *parameters) {
     while(true) {
         if (xQueueReceive(keyQueue, &key, portMAX_DELAY)) {
             Serial.printf("Key pressed: %d\n", key);
-            digitalWrite(redLED, HIGH);
+            digitalWrite(BUTTON_STATE_LED, HIGH);
             if (bleKeyboard.isConnected()) {
                 bleKeyboard.write(key);
             }
             vTaskDelay(100 / portTICK_PERIOD_MS);
-            digitalWrite(redLED, LOW);
+            digitalWrite(BUTTON_STATE_LED, LOW);
         }
     }
 }
 
 void setBatteryLevel(void *parameters) {
+    const float R1 = 10000;
+    const float R2 = 10000;
+    float MAX_BATTERY_VOLTAGE = 3.0;
+    const float MIN_BATTERY_VOLTAGE = 2.4;
     while(true) {
-        Serial.println("Battery Level");
-        vTaskDelay( 10000 / portTICK_PERIOD_MS);
+        int adcValue = analogRead(BATTERY_PIN);
+        float vMeasured = (adcValue / 4095.0) * 3.3;
+        float batteryVoltage = vMeasured * ((R1 + R2) / R2);
+        int batteryLevel = (int)(100.0 * 
+            (batteryVoltage - MIN_BATTERY_VOLTAGE) / (MAX_BATTERY_VOLTAGE - MIN_BATTERY_VOLTAGE)
+        );
+        batteryLevel = constrain(batteryLevel, 0, 100);
+        bleKeyboard.setBatteryLevel(batteryLevel);
+
+        Serial.printf("Battery Level: %.2fV -> %d%%\n", batteryVoltage, batteryLevel);
+        vTaskDelay( 5000 / portTICK_PERIOD_MS);
+        MAX_BATTERY_VOLTAGE + 0.1;
     }
 }
 
@@ -66,7 +81,8 @@ void setup() {
     Serial.println();
     Serial.println("---Prezenter---");
 
-    pinMode(redLED, OUTPUT);
+    pinMode(BUTTON_STATE_LED, OUTPUT);
+    analogReadResolution(12);
     bleKeyboard.begin();
     keyQueue = xQueueCreate(key_queue_len, sizeof(uint8_t));
     xTaskCreatePinnedToCore(

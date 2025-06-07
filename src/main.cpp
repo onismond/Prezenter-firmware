@@ -11,7 +11,7 @@ const int BUTTON_STATE_LED = 14;
 const int BATTERY_PIN = 35;
 
 static const BaseType_t app_cpu = 1;
-BleKeyboard bleKeyboard("Prezenter", "Bilo Technologies", 100);
+BleKeyboard bleKeyboard("Prezenter", "Prezenter", 100);
 static const uint8_t key_queue_len = 20;
 static QueueHandle_t keyQueue;
 
@@ -57,7 +57,7 @@ void sendKeyPress(void *parameters) {
 void setBatteryLevel(void *parameters) {
     const float R1 = 10000;
     const float R2 = 10000;
-    float MAX_BATTERY_VOLTAGE = 3.0;
+    const float MAX_BATTERY_VOLTAGE = 3.0;
     const float MIN_BATTERY_VOLTAGE = 2.4;
     while(true) {
         int adcValue = analogRead(BATTERY_PIN);
@@ -69,9 +69,8 @@ void setBatteryLevel(void *parameters) {
         batteryLevel = constrain(batteryLevel, 0, 100);
         bleKeyboard.setBatteryLevel(batteryLevel);
 
-        Serial.printf("Battery Level: %.2fV -> %d%%\n", batteryVoltage, batteryLevel);
+        // Serial.printf("Battery Level: %.2fV -> %d%%\n", batteryVoltage, batteryLevel);
         vTaskDelay( 5000 / portTICK_PERIOD_MS);
-        MAX_BATTERY_VOLTAGE + 0.1;
     }
 }
 

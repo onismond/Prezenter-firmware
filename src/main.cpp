@@ -6,18 +6,18 @@
 #include <BleKeyboard.h>
 
 const int FORWARD_BUTTON = 25;
-const int BACKWARD_BUTTON = 26;
-const int BUTTON_STATE_LED = 14;
+const int BACKWARD_BUTTON = 27;
+const int BUTTON_STATE_LED = 21;
 const int BATTERY_PIN = 35;
 
 static const BaseType_t app_cpu = 1;
-BleKeyboard bleKeyboard("Prezenter", "Prezenter", 100);
+BleKeyboard bleKeyboard("Prezenter", "Prezenter", 80);
 static const uint8_t key_queue_len = 20;
 static QueueHandle_t keyQueue;
 
 void readButtonPress(void *parameters) {
-    pinMode(FORWARD_BUTTON, INPUT);
-    pinMode(BACKWARD_BUTTON, INPUT);
+    pinMode(FORWARD_BUTTON, INPUT_PULLDOWN);
+    pinMode(BACKWARD_BUTTON, INPUT_PULLDOWN);
     bool f_last_state = LOW;
     bool b_last_state = LOW;
 
@@ -27,10 +27,10 @@ void readButtonPress(void *parameters) {
         bool b_current_state = digitalRead(BACKWARD_BUTTON);
         if (f_last_state == LOW && f_current_state == HIGH) {
             uint8_t key = KEY_DOWN_ARROW;
-            xQueueSend(keyQueue, &key, portMAX_DELAY);
+            xQueueSend(keyQueue, &key, pdMS_TO_TICKS(0));
         } else if (b_last_state == LOW && b_current_state == HIGH) {
             uint8_t key = KEY_UP_ARROW;
-            xQueueSend(keyQueue, &key, portMAX_DELAY);
+            xQueueSend(keyQueue, &key, pdMS_TO_TICKS(0));
         }
         f_last_state = f_current_state;
         b_last_state = b_current_state;
@@ -42,8 +42,8 @@ void readButtonPress(void *parameters) {
 void sendKeyPress(void *parameters) {
     uint8_t key;
     while(true) {
-        if (xQueueReceive(keyQueue, &key, portMAX_DELAY)) {
-            Serial.printf("Key pressed: %d\n", key);
+        if (xQueueReceive(keyQueue, &key, pdMS_TO_TICKS(0))) {
+            // Serial.printf("Key pressed: %d\n", key);
             digitalWrite(BUTTON_STATE_LED, HIGH);
             if (bleKeyboard.isConnected()) {
                 bleKeyboard.write(key);
@@ -76,9 +76,9 @@ void setBatteryLevel(void *parameters) {
 
 void setup() {
     Serial.begin(9600);
-    vTaskDelay(2000 / portTICK_PERIOD_MS);
-    Serial.println();
-    Serial.println("---Prezenter---");
+    // vTaskDelay(200 / portTICK_PERIOD_MS);
+    // Serial.println();
+    // Serial.println("---Prezenter---");
 
     pinMode(BUTTON_STATE_LED, OUTPUT);
     analogReadResolution(12);
@@ -102,14 +102,14 @@ void setup() {
         NULL,
         app_cpu
     );
-    xTaskCreate(
-        setBatteryLevel,
-        "Set Battery Level",
-        4096,
-        NULL,
-        1,
-        NULL
-    );
+    // xTaskCreate(
+    //     setBatteryLevel,
+    //     "Set Battery Level",
+    //     4096,
+    //     NULL,
+    //     1,
+    //     NULL
+    // );
     vTaskDelete(NULL);
 }
 
